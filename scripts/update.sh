@@ -79,9 +79,34 @@ if [ -z "${GITHUB_DIR}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 4: Overlay — copy files into the workspace, never delete consumer files
+# Step 4: Branch setup — switch branches BEFORE overlaying files
 # ---------------------------------------------------------------------------
 WORKSPACE="${GITHUB_WORKSPACE:-.}"
+
+if [ "${CREATE_PR}" = "true" ]; then
+  # Configure git identity if not already set
+  git config --get user.email > /dev/null 2>&1 || git config user.email "github-actions[bot]@users.noreply.github.com"
+  git config --get user.name  > /dev/null 2>&1 || git config user.name  "github-actions[bot]"
+
+  # Determine base branch
+  if [ -z "${PR_BASE}" ]; then
+    PR_BASE="$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")"
+  fi
+
+  # Switch to (or create) the PR branch before overlaying files
+  if git ls-remote --exit-code --heads origin "${PR_BRANCH}" > /dev/null 2>&1; then
+    git fetch origin "${PR_BRANCH}"
+    git checkout "${PR_BRANCH}"
+    # Rebase on top of base to keep branch fresh
+    git rebase "origin/${PR_BASE}" || git rebase --abort || true
+  else
+    git checkout -b "${PR_BRANCH}"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Step 5: Overlay — copy files into the workspace, never delete consumer files
+# ---------------------------------------------------------------------------
 FILES_CHANGED=0
 CHANGED_LIST=""
 
@@ -103,35 +128,16 @@ done < <(find "${GITHUB_DIR}" -type f -print0)
 info "Files added/updated: ${FILES_CHANGED}"
 
 # ---------------------------------------------------------------------------
-# Step 5: Report
+# Step 6: Report
 # ---------------------------------------------------------------------------
 if [ "${FILES_CHANGED}" -eq 0 ]; then
   info "No files were changed."
 fi
 
 # ---------------------------------------------------------------------------
-# Step 6: PR or direct commit
+# Step 7: Commit and push
 # ---------------------------------------------------------------------------
 if [ "${CREATE_PR}" = "true" ]; then
-  # Configure git identity if not already set
-  git config --get user.email > /dev/null 2>&1 || git config user.email "github-actions[bot]@users.noreply.github.com"
-  git config --get user.name  > /dev/null 2>&1 || git config user.name  "github-actions[bot]"
-
-  # Determine base branch
-  if [ -z "${PR_BASE}" ]; then
-    PR_BASE="$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")"
-  fi
-
-  # Switch to (or create) the PR branch
-  if git ls-remote --exit-code --heads origin "${PR_BRANCH}" > /dev/null 2>&1; then
-    git fetch origin "${PR_BRANCH}"
-    git checkout "${PR_BRANCH}"
-    # Rebase on top of base to keep branch fresh
-    git rebase "origin/${PR_BASE}" || git rebase --abort || true
-  else
-    git checkout -b "${PR_BRANCH}"
-  fi
-
   git add -- ".github/"
 
   if git diff --cached --quiet; then
