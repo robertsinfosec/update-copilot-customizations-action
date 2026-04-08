@@ -143,7 +143,7 @@ if [ "${CREATE_PR}" = "true" ]; then
       "${VERSION}" "${SOURCE_REPO}" "${CHANGED_LIST}")"
 
     git commit -m "${PR_TITLE}"
-    git push origin "${PR_BRANCH}"
+    git push --force-with-lease origin "${PR_BRANCH}"
 
     # Check whether a PR already exists for this branch
     EXISTING_PR="$(gh pr list \
@@ -170,6 +170,19 @@ if [ "${CREATE_PR}" = "true" ]; then
   fi
 
   echo "pr-number=${PR_NUMBER}" >> "${GITHUB_OUTPUT}"
+else
+  # Direct commit to the current branch
+  git config --get user.email > /dev/null 2>&1 || git config user.email "github-actions[bot]@users.noreply.github.com"
+  git config --get user.name  > /dev/null 2>&1 || git config user.name  "github-actions[bot]"
+
+  git add -- ".github/"
+
+  if git diff --cached --quiet; then
+    info "No changes to commit — already up to date."
+  else
+    git commit -m "chore: update Copilot customizations to ${VERSION}"
+    git push
+  fi
 fi
 
 # ---------------------------------------------------------------------------
