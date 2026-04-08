@@ -1,0 +1,55 @@
+name: Update GitHub Copilot Customizations
+description: Downloads and overlays Copilot customization files from a centralized governance repository into the consumer's repository.
+author: robertsinfosec
+
+inputs:
+  version:
+    description: Release version to install (e.g. v26.408.559 or latest)
+    required: false
+    default: latest
+  source-repo:
+    description: GitHub repo to download releases from
+    required: false
+    default: robertsinfosec/gh-copilot-customizations
+  token:
+    description: GitHub token for downloading release assets and creating PRs
+    required: false
+    default: ${{ github.token }}
+  create-pr:
+    description: Whether to open a PR with the changes instead of committing directly
+    required: false
+    default: 'true'
+  pr-branch:
+    description: Branch name for the PR
+    required: false
+    default: update-copilot-customizations
+  pr-base:
+    description: Base branch for the PR
+    required: false
+    default: ${{ github.event.repository.default_branch }}
+
+outputs:
+  version:
+    description: The resolved version that was installed
+    value: ${{ steps.run.outputs.version }}
+  pr-number:
+    description: PR number if one was created (empty otherwise)
+    value: ${{ steps.run.outputs.pr-number }}
+  files-changed:
+    description: Number of files added or updated
+    value: ${{ steps.run.outputs.files-changed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run update script
+      id: run
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_SOURCE_REPO: ${{ inputs.source-repo }}
+        INPUT_CREATE_PR: ${{ inputs.create-pr }}
+        INPUT_PR_BRANCH: ${{ inputs.pr-branch }}
+        INPUT_PR_BASE: ${{ inputs.pr-base }}
+      run: bash "${{ github.action_path }}/scripts/update.sh"
