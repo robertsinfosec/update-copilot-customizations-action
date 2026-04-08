@@ -153,7 +153,7 @@ if [ "${CREATE_PR}" = "true" ]; then
       "${VERSION}" "${SOURCE_REPO}" "${CHANGED_LIST}")"
 
     git commit -m "${PR_TITLE}"
-    git push --force-with-lease origin "${PR_BRANCH}"
+    git push --force origin "${PR_BRANCH}"
 
     # Check whether a PR already exists for this branch
     EXISTING_PR="$(gh pr list \
