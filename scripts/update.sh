@@ -158,13 +158,12 @@ if [ "${CREATE_PR}" = "true" ]; then
       gh pr edit "${EXISTING_PR}" --body "${PR_BODY}"
       PR_NUMBER="${EXISTING_PR}"
     else
-      PR_NUMBER="$(gh pr create \
+      PR_URL="$(gh pr create \
         --title "${PR_TITLE}" \
         --body  "${PR_BODY}" \
         --base  "${PR_BASE}" \
-        --head  "${PR_BRANCH}" \
-        --json number \
-        --jq '.number')"
+        --head  "${PR_BRANCH}")"
+      PR_NUMBER="${PR_URL##*/}"
       info "Created PR #${PR_NUMBER}"
     fi
   fi
