@@ -46,18 +46,21 @@ DOWNLOAD_DIR="${WORK_DIR}/download"
 EXTRACT_DIR="${WORK_DIR}/extract"
 mkdir -p "${DOWNLOAD_DIR}" "${EXTRACT_DIR}"
 
+REPO_NAME="${SOURCE_REPO##*/}"
+ASSET_PATTERN="${REPO_NAME}-*.tar.gz"
+
 info "Downloading release assets for ${VERSION} from ${SOURCE_REPO} …"
 gh release download "${VERSION}" \
   --repo "${SOURCE_REPO}" \
-  --pattern "*.tar.gz" \
+  --pattern "${ASSET_PATTERN}" \
   --dir "${DOWNLOAD_DIR}" || {
   error "Failed to download release assets for ${VERSION} from ${SOURCE_REPO}."
   exit 1
 }
 
-TARBALL="$(find "${DOWNLOAD_DIR}" -name "*.tar.gz" | head -n 1)"
+TARBALL="$(find "${DOWNLOAD_DIR}" -name "${ASSET_PATTERN}" -print -quit)"
 if [ -z "${TARBALL}" ]; then
-  error "No .tar.gz file found in the downloaded assets for ${VERSION}."
+  error "No release asset matching ${ASSET_PATTERN} was found for ${VERSION}."
   exit 1
 fi
 
@@ -93,15 +96,16 @@ if [ "${CREATE_PR}" = "true" ]; then
     PR_BASE="$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")"
   fi
 
-  # Switch to (or create) the PR branch before overlaying files
-  if git ls-remote --exit-code --heads origin "${PR_BRANCH}" > /dev/null 2>&1; then
-    git fetch origin "${PR_BRANCH}"
-    git checkout "${PR_BRANCH}"
-    # Rebase on top of base to keep branch fresh
-    git rebase "origin/${PR_BASE}" || git rebase --abort || true
-  else
-    git checkout -b "${PR_BRANCH}"
-  fi
+  # Always rebuild the automation branch from the latest base branch state.
+  git fetch origin "${PR_BASE}" || {
+    error "Failed to fetch base branch origin/${PR_BASE}."
+    exit 1
+  }
+
+  git checkout -B "${PR_BRANCH}" "origin/${PR_BASE}" || {
+    error "Failed to reset ${PR_BRANCH} from origin/${PR_BASE}."
+    exit 1
+  }
 fi
 
 # ---------------------------------------------------------------------------
